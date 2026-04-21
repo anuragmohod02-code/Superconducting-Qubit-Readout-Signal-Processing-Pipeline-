@@ -9,10 +9,11 @@ source modules and four Jupyter notebooks.
 | Skill area | Evidence |
 |---|---|
 | Quantum hardware knowledge | Jaynes-Cummings dispersive limit, dressed cavity frequencies, AWGN shot noise model |
-| Digital signal processing | Heterodyne DDC, FIR LPF design, decimation, matched filtering |
+| Digital signal processing | Heterodyne DDC, FIR LPF design, decimation, matched filtering, Wiener filter |
 | Machine learning | GMM unsupervised clustering, LDA optimal linear classifier, ROC / AUC |
+| Readout error mitigation | Calibration-matrix inversion, M3 sparse approximation, fidelity improvement |
+| Multi-qubit systems | Frequency-multiplexed 2-tone readout, crosstalk analysis, latency modelling |
 | Python / scientific stack | scipy ODE solver, scipy.signal, sklearn, matplotlib, Qiskit quantum_info |
-| Experimental relevance | Mirrors real dispersive readout chains used at IBM/Google/IQM |
 
 ---
 
@@ -61,25 +62,38 @@ Project2_Qubit_Readout/
 ├── src/
 │   ├── transmon.py           # Dispersive Hamiltonian + cavity ODE (scipy + Qiskit)
 │   ├── readout_chain.py      # DDC + FIR LPF + decimation + integration
-│   └── discriminator.py      # GMM + LDA classifiers, fidelity, ROC
+│   ├── discriminator.py      # GMM + LDA classifiers, fidelity, ROC
+│   ├── error_mitigation.py   # Cal-matrix inversion + M3 mitigation ★
+│   ├── wiener_filter.py      # Optimal Wiener filter (beats matched filter under coloured noise) ★
+│   ├── crosstalk_readout.py  # 2-tone multiplexed readout, ZZ crosstalk, S21 spectrum ★
+│   └── latency_model.py      # End-to-end decision latency model + T1 penalty ★
 ├── notebooks/
-│   ├── 01_qubit_physics.ipynb          # Cavity field buildup, shot simulation
-│   ├── 02_ddc_signal_processing.ipynb  # 5-stage pipeline waterfall
-│   ├── 03_state_discrimination.ipynb   # IQ scatter, confusion, ROC, fidelity
-│   └── 04_full_pipeline.ipynb          # End-to-end, summary figure
+│   ├── 01_qubit_physics.ipynb
+│   ├── 02_ddc_signal_processing.ipynb
+│   ├── 03_state_discrimination.ipynb
+│   └── 04_full_pipeline.ipynb
 ├── python/
-│   ├── run_pipeline.py        # Standalone script — generates all outputs
-│   └── create_notebooks.py    # Generates .ipynb files via nbformat
+│   ├── run_pipeline.py
+│   └── create_notebooks.py
 ├── outputs/
 │   ├── 01_cavity_field_buildup.png
 │   ├── 02_ddc_pipeline.png
 │   ├── 03_iq_scatter_gmm.png
 │   ├── 04_roc_confusion.png
 │   ├── 05_fidelity_vs_time.png
-│   └── full_pipeline_summary.png
+│   ├── full_pipeline_summary.png
+│   ├── error_mitigation.png      # ★ Bell state mitigation: fidelity 0.93 → 1.00
+│   ├── wiener_filter.png         # ★ d' comparison: Wiener 3.7× > matched filter
+│   ├── crosstalk_s21.png         # ★ S21 spectrum for all 4 qubit states
+│   ├── crosstalk_iq.png          # ★ IQ clouds — 2-tone multiplexed
+│   ├── crosstalk_fidelity_vs_df.png  # ★ Fidelity vs resonator spacing
+│   ├── latency_breakdown.png     # ★ Latency pie charts: 3 architectures
+│   └── latency_fidelity.png      # ★ T1 error vs integration time
 ├── requirements.txt
 └── README.md
 ```
+
+★ New in v2
 
 ---
 
@@ -151,6 +165,53 @@ showing the optimal operating point at $\Delta = 0$.*
 | GMM readout fidelity | > 99.9% |
 | LDA readout fidelity | > 99.9% |
 | LDA ROC AUC | > 0.9999 |
+
+---
+
+## v2 Improvements
+
+### Readout Error Mitigation
+
+![Error mitigation](outputs/error_mitigation.png)
+
+*Bell state |Φ+⟩ probability distribution before and after readout error mitigation.
+With ε₀=3%, ε₁=4% assignment errors: raw fidelity 0.932 → mitigated 1.000 (exact)
+/ 1.000 (M3). Mitigation overhead: 1.16× statistical noise inflation.*
+
+### Optimal Wiener Filter
+
+![Wiener filter](outputs/wiener_filter.png)
+
+*Under coloured (1/f + white) noise, the Wiener filter outperforms the matched filter
+by 3.7× in d'-metric (d'=0.097 vs 0.026). +39.9 dB SNR gain is achieved by
+down-weighting frequency bins where the noise PSD dominates.*
+
+### Multi-Qubit Frequency-Multiplexed Readout
+
+![S21 spectrum](outputs/crosstalk_s21.png)
+
+*Transmission S21(f) for all four two-qubit states. Two Lorentzian features at f_r0=5.00 GHz
+and f_r1=5.15 GHz (Δf=150 MHz) disperse depending on qubit state. ZZ coupling (50 kHz)
+causes a frequency shift visible as a splitting of the f_r1 feature.*
+
+![IQ clouds multiplexed](outputs/crosstalk_iq.png)
+
+*IQ clouds for each resonator after digital down-conversion to the respective tone.
+Q0→Q1 crosstalk phase: 1.92° (ZZ-dominated). Q1→Q0 crosstalk: 0.10% (spectral leakage).*
+
+### Real-Time Decision Latency Model
+
+![Latency breakdown](outputs/latency_breakdown.png)
+
+| Architecture | Total latency | Latency/T₁ | T₁ error penalty |
+|---|---|---|---|
+| State-of-art 2023 (JPA+fast FPGA) | 619 ns | 0.62% | 0.617% |
+| Typical 2023 (HEMT+FPGA) | 1272 ns | 1.27% | 1.264% |
+| Early 2018 (slow FIR) | 3593 ns | 3.59% | 3.529% |
+
+*Latency budget for a typical superconducting qubit experiment (T₁=100 μs).
+The dominant contributions are integration window and classical communication.
+Surface code distance-3 tolerates ≈1% per-cycle error — current hardware is marginal.*
 
 ---
 
