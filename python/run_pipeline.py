@@ -87,6 +87,10 @@ print(f"   χ/2π  = {p.chi/(2*np.pi)/1e6:.1f} MHz   "
       f"ε/2π = {p.epsilon/(2*np.pi)/1e6:.1f} MHz")
 print(f"   Steady-state  |0⟩: {ss0:.4f}   |1⟩: {ss1:.4f}")
 print(f"   Single-shot SNR   : {snr:.1f} dB")
+print(f"   T1 decay events   : {data['n_relaxed']}/1000 |1⟩ shots  "
+      f"(T1={p.t1_us:.0f} µs,  P≈{(1-np.exp(-p.t_end/(p.t1_us*1e-6)))*100:.1f}%)")
+print(f"   Thermal flip events: {data['n_thermal']}/1000 |0⟩ shots  "
+      f"(n_bar={p.n_bar_th:.2f},  P≈{p.n_bar_th/(p.n_bar_th+1)*100:.1f}%)")
 
 # ── Figure 1: Cavity field buildup ───────────────────────────────────────────
 fig, axes = plt.subplots(2, 2, figsize=(10, 6), constrained_layout=True)
@@ -307,11 +311,11 @@ ax = axes5[0]
 ax.plot(fracs * 100, fidels * 100, color='#2E7D32', marker='o',
         markersize=4, label='LDA fidelity')
 ax.axhline(y=F_lda * 100, color='gray', linestyle='--', linewidth=1,
-           label=f'50% box-car: {F_lda*100:.2f}%')
-ax.set_xlabel('Integration window (% of readout pulse)')
+           label=f'Full-window (50% box-car): {F_lda*100:.2f}%')
+ax.set_xlabel('Readout duration (% of pulse window,  t = 0 → T)')
 ax.set_ylabel('Readout Fidelity (%)')
-ax.set_title('Fidelity vs. Integration Time')
-ax.set_ylim([max(0, fidels.min() * 100 - 2), 101])
+ax.set_title('Fidelity vs. Integration Duration')
+ax.set_ylim([max(50, fidels.min() * 100 - 2), 101])
 ax.legend()
 
 ax = axes5[1]
@@ -335,18 +339,22 @@ print("\n[6/6] Saving results table...")
 
 import csv
 rows = [
-    ['Metric',                  'Value', 'Unit'],
-    ['chi/2pi',                 f'{p.chi/(2*np.pi)/1e6:.2f}',  'MHz'],
-    ['kappa/2pi',               f'{p.kappa/(2*np.pi)/1e6:.2f}', 'MHz'],
-    ['epsilon/2pi',             f'{p.epsilon/(2*np.pi)/1e6:.2f}', 'MHz'],
-    ['Single-shot SNR',         f'{snr:.2f}',   'dB'],
-    ['Shots per state',         '1000',         ''],
-    ['GMM fidelity',            f'{F_gmm*100:.2f}', '%'],
-    ['LDA fidelity',            f'{F_lda*100:.2f}', '%'],
-    ['LDA ROC AUC',             f'{auc_lda:.5f}', ''],
-    ['P(1|0)  LDA',             f'{M_lda[1,0]*100:.3f}', '%'],
-    ['P(0|1)  LDA',             f'{M_lda[0,1]*100:.3f}', '%'],
-    ['Max fidelity (full int.)', f'{fidels.max()*100:.2f}', '%'],
+    ['Metric',                   'Value', 'Unit'],
+    ['chi/2pi',                  f'{p.chi/(2*np.pi)/1e6:.2f}',  'MHz'],
+    ['kappa/2pi',                f'{p.kappa/(2*np.pi)/1e6:.2f}', 'MHz'],
+    ['epsilon/2pi',              f'{p.epsilon/(2*np.pi)/1e6:.2f}', 'MHz'],
+    ['T1 relaxation time',       f'{p.t1_us:.0f}',  'µs'],
+    ['Thermal occupation n_bar', f'{p.n_bar_th:.3f}', ''],
+    ['T1 decay events (|1>)',    f'{data["n_relaxed"]}', '/ 1000 shots'],
+    ['Thermal flips (|0>)',      f'{data["n_thermal"]}', '/ 1000 shots'],
+    ['Single-shot SNR',          f'{snr:.2f}',   'dB'],
+    ['Shots per state',          '1000',         ''],
+    ['GMM fidelity',             f'{F_gmm*100:.3f}', '%'],
+    ['LDA fidelity',             f'{F_lda*100:.3f}', '%'],
+    ['LDA ROC AUC',              f'{auc_lda:.5f}', ''],
+    ['P(1|0)  LDA',              f'{M_lda[1,0]*100:.3f}', '%'],
+    ['P(0|1)  LDA',              f'{M_lda[0,1]*100:.3f}', '%'],
+    ['Max fidelity (full int.)', f'{fidels.max()*100:.3f}', '%'],
 ]
 
 csv_path = OUT / 'readout_summary.csv'

@@ -2,11 +2,15 @@ Metric,Value,Unit
 chi/2pi,1.00,MHz
 kappa/2pi,2.00,MHz
 epsilon/2pi,1.00,MHz
+T1 relaxation time,50,µs
+Thermal occupation n_bar,0.020,
+T1 decay events (|1>),18,/ 1000 shots
+Thermal flips (|0>),22,/ 1000 shots
 Single-shot SNR,10.44,dB
 Shots per state,1000,
-GMM fidelity,100.00,%
-LDA fidelity,100.00,%
-LDA ROC AUC,1.00000,
-P(1|0)  LDA,0.000,%
-P(0|1)  LDA,0.000,%
-Max fidelity (full int.),100.00,%
+GMM fidelity,98.400,%
+LDA fidelity,98.400,%
+LDA ROC AUC,0.98557,
+P(1|0)  LDA,2.200,%
+P(0|1)  LDA,1.000,%
+Max fidelity (full int.),98.700,%

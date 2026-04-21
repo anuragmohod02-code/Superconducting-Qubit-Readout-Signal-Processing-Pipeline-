@@ -210,27 +210,32 @@ def fidelity_vs_integration_time(
     n_fractions: int = 25,
 ) -> tuple:
     """
-    Sweep the box-car integration window over the decimated signal.
+    Sweep the box-car integration window from t=0 forward.
+
+    Integrates samples 0 … int(frac·N) to show how fidelity builds up as the
+    cavity field rings up from zero toward steady state.  This reflects the
+    real experimental trade-off: longer readout → more signal, but also more
+    exposure to T1 relaxation.
 
     Parameters
     ----------
     shots_0_dec : (n_shots, n_dec) complex — |0⟩ after LPF + decimate
     shots_1_dec : (n_shots, n_dec) complex — |1⟩ after LPF + decimate
-    n_fractions : number of integration fractions to test
+    n_fractions : number of integration durations to test
 
     Returns
     -------
-    fractions  : (n_fractions,) — fraction of trace integrated
-    fidelities : (n_fractions,) — LDA readout fidelity at each fraction
+    fractions  : (n_fractions,) — fraction of readout window used (0 → 1)
+    fidelities : (n_fractions,) — LDA readout fidelity at each duration
     """
-    fractions  = np.linspace(0.02, 1.0, n_fractions)
+    fractions  = np.linspace(0.04, 1.0, n_fractions)
     fidelities = []
 
     for frac in fractions:
-        n     = shots_0_dec.shape[-1]
-        start = int((1.0 - frac) * n)
-        iq_0  = np.mean(shots_0_dec[:, start:], axis=-1)   # (n_shots,) complex
-        iq_1  = np.mean(shots_1_dec[:, start:], axis=-1)
+        n   = shots_0_dec.shape[-1]
+        end = max(int(frac * n), 1)
+        iq_0 = np.mean(shots_0_dec[:, :end], axis=-1)   # integrate t=0 → frac·T
+        iq_1 = np.mean(shots_1_dec[:, :end], axis=-1)
 
         disc = LDADiscriminator().fit(iq_0, iq_1)
         M    = assignment_matrix(disc, iq_0, iq_1)

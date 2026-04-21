@@ -73,6 +73,11 @@ class TransmonParams:
     epsilon:      float = 2 * np.pi * 1.0e6     # Drive amplitude (rad/s)
     # ── Noise ────────────────────────────────────────────────────────────────
     noise_sigma:  float = 0.15                   # AWGN σ on each I/Q sample
+    # ── Decoherence (limits realistic fidelity) ──────────────────────────────
+    t1_us:        float = 50.0                   # Qubit T1 relaxation time (µs)
+                                                  #   T1 decay during readout: P≈T_R/T1≈2%
+    n_bar_th:     float = 0.02                   # Residual thermal occupation
+                                                  #   state-prep error: P≈n_bar≈2%
     # ── Simulation ───────────────────────────────────────────────────────────
     t_end:        float = 1.0e-6                 # Readout window (1 µs)
     n_time:       int   = 512                    # Time samples per trace
@@ -194,6 +199,8 @@ def simulate_shots(
         'shots_0'    : (n_shots, n_time) complex — noisy |0⟩ traces
         'shots_1'    : (n_shots, n_time) complex — noisy |1⟩ traces
         'params'     : TransmonParams used
+        'n_thermal'  : int — number of |0⟩ shots that started in |1⟩ (thermal excitation)
+        'n_relaxed'  : int — number of |1⟩ shots where qubit decayed during readout
     """
     rng = np.random.default_rng(rng_seed)
 
@@ -211,13 +218,43 @@ def simulate_shots(
     shots_0 = alpha_0[np.newaxis, :] + noise_0     # (n_shots, n_time)
     shots_1 = alpha_1[np.newaxis, :] + noise_1
 
+    n_thermal = 0
+    n_relaxed = 0
+
+    # ── Thermal state preparation error ──────────────────────────────────────
+    # At millikelvin temperatures, residual thermal occupation n_bar means the
+    # qubit is in |1⟩ with probability p ≈ n_bar / (n_bar + 1) even after
+    # ground-state preparation.  These shots produce |1⟩ cavity signals but
+    # are labelled |0⟩ → irreducible state-preparation and measurement (SPAM) error.
+    if params.n_bar_th > 0.0:
+        p_thermal = params.n_bar_th / (params.n_bar_th + 1.0)
+        flip_0    = rng.random(n_shots) < p_thermal
+        n_thermal = int(flip_0.sum())
+        if n_thermal > 0:
+            shots_0[flip_0, :] = alpha_1[np.newaxis, :] + noise_0[flip_0, :]
+
+    # ── T1 relaxation during readout ─────────────────────────────────────────
+    # The |1⟩ qubit decays to |0⟩ at a random time drawn from Exp(T1).
+    # After the decay, the cavity field evolves toward α_0.
+    # P(decay in 1µs window) ≈ 1 − exp(−T_R / T1) ≈ T_R / T1  for T1 >> T_R.
+    if params.t1_us > 0.0:
+        t1_s        = params.t1_us * 1e-6
+        decay_times = rng.exponential(scale=t1_s, size=n_shots)
+        decayed     = np.where(decay_times < params.t_end)[0]
+        n_relaxed   = len(decayed)
+        for idx in decayed:
+            sw = int(np.searchsorted(t, decay_times[idx]))
+            shots_1[idx, sw:] = alpha_0[sw:] + noise_1[idx, sw:]
+
     return {
-        't':       t,
-        'alpha_0': alpha_0,
-        'alpha_1': alpha_1,
-        'shots_0': shots_0,
-        'shots_1': shots_1,
-        'params':  params,
+        't':         t,
+        'alpha_0':   alpha_0,
+        'alpha_1':   alpha_1,
+        'shots_0':   shots_0,
+        'shots_1':   shots_1,
+        'params':    params,
+        'n_thermal': n_thermal,
+        'n_relaxed': n_relaxed,
     }
 
 
