@@ -1,4 +1,4 @@
-# Project 2 — Superconducting Qubit Readout Signal Processing Pipeline
+# Superconducting Qubit Readout Signal Processing Pipeline
 
 A full dispersive readout simulation and signal processing chain for superconducting
 qubits — from quantum physics to state discrimination — implemented as three Python
